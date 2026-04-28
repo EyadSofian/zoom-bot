@@ -192,3 +192,34 @@ app.post('/challenge', auth, (req, res) => {
     .digest('hex');
   res.json({ plainToken, encryptedToken: hash });
 });
+
+// -- Zoom Webhook Handler (Challenge + Events) ----------------
+app.post('/zoom-webhook', (req, res) => {
+  const body = req.body;
+
+  // Challenge-Response
+  if (body.event === 'endpoint.url_validation') {
+    const crypto = require('crypto');
+    const hash = crypto
+      .createHmac('sha256', process.env.ZOOM_SECRET_TOKEN || '')
+      .update(body.payload.plainToken)
+      .digest('hex');
+    return res.json({ plainToken: body.payload.plainToken, encryptedToken: hash });
+  }
+
+  // Meeting Started
+  if (body.event === 'meeting.started') {
+    const obj = body.payload.object;
+    res.json({ status: 'ok' });
+    // Join async
+    joinMeeting({
+      meetingNumber: String(obj.id),
+      password:      obj.password  || '',
+      lecturerEmail: obj.host_email || '',
+      lecturerName:  obj.host_email || ''
+    }).catch(err => console.error('[Bot] Join error:', err.message));
+    return;
+  }
+
+  res.json({ status: 'ignored' });
+});
