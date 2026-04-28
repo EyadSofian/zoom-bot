@@ -14,12 +14,20 @@ app.use(express.static(path.join(__dirname, '../public')));
 
 // ── Config ──────────────────────────────────────────────────
 const CONFIG = {
-  SDK_KEY    : process.env.ZOOM_SDK_KEY    || 'R0woOwvFQcOZ8F9aU3vnQA',
-  SDK_SECRET : process.env.ZOOM_SDK_SECRET || 'rgIK9yJ46iQiW5GspsKUTrtcR9eGCHZi',
-  BOT_NAME   : process.env.BOT_NAME        || 'Engosoft Bot',
-  PORT       : process.env.PORT            || 3000,
-  SECRET_KEY : process.env.SECRET_KEY      || 'engosoft-secret-2026',
+  SDK_KEY    : process.env.ZOOM_SDK_KEY,
+  SDK_SECRET : process.env.ZOOM_SDK_SECRET,
+  BOT_NAME   : process.env.BOT_NAME    || 'Engosoft Bot',
+  PORT       : process.env.PORT        || 3000,
+  SECRET_KEY : process.env.SECRET_KEY,
 };
+
+// Validate required env vars on startup
+['ZOOM_SDK_KEY', 'ZOOM_SDK_SECRET', 'SECRET_KEY'].forEach(key => {
+  if (!process.env[key]) {
+    console.error(`❌ Missing required env var: ${key}`);
+    process.exit(1);
+  }
+});
 
 // Active browser sessions: meetingNumber → { browser, page }
 const sessions = new Map();
