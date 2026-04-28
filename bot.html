@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Engosoft Bot</title>
+  <style>
+    body { background: #000; color: #0f0; font-family: monospace; padding: 20px; }
+    #log { white-space: pre-wrap; font-size: 12px; }
+  </style>
+</head>
+<body>
+<div id="log">Initializing Engosoft Bot...\n</div>
+<div id="zmmtg-root"></div>
+
+<!-- Zoom Web SDK -->
+<link type="text/css" rel="stylesheet" href="https://source.zoom.us/3.13.2/css/bootstrap.css" />
+<link type="text/css" rel="stylesheet" href="https://source.zoom.us/3.13.2/css/react-select.css" />
+<script src="https://source.zoom.us/3.13.2/lib/vendor/react.min.js"></script>
+<script src="https://source.zoom.us/3.13.2/lib/vendor/react-dom.min.js"></script>
+<script src="https://source.zoom.us/3.13.2/lib/vendor/redux.min.js"></script>
+<script src="https://source.zoom.us/3.13.2/lib/vendor/redux-thunk.min.js"></script>
+<script src="https://source.zoom.us/3.13.2/lib/vendor/lodash.min.js"></script>
+<script src="https://source.zoom.us/3.13.2/zoom-meeting-3.13.2.min.js"></script>
+
+<script>
+// ── Parse URL params ──────────────────────────────────────
+const params = new URLSearchParams(window.location.search);
+const MN          = params.get('mn');
+const PWD         = params.get('pwd')          || '';
+const NAME        = params.get('name')         || 'Engosoft Bot';
+const SIG         = params.get('sig');
+const SDK_KEY     = params.get('sdkKey');
+const LECTURER    = params.get('lecturer')     || '';
+const LECTURER_EMAIL = params.get('lecturerEmail') || '';
+
+window.__botStatus = 'init';
+
+function log(msg) {
+  const el = document.getElementById('log');
+  el.textContent += `[${new Date().toISOString()}] ${msg}\n`;
+  console.log(msg);
+}
+
+// ── Main ──────────────────────────────────────────────────
+log(`Meeting: ${MN}`);
+log(`Lecturer: ${LECTURER}`);
+
+ZoomMtg.setZoomJSLib('https://source.zoom.us/3.13.2/lib', '/av');
+ZoomMtg.preLoadWasm();
+ZoomMtg.prepareWebSDK();
+
+ZoomMtg.init({
+  leaveUrl: 'about:blank',
+  isSupportAV: true,
+  isLockBottom: true,
+  success: () => {
+    log('SDK initialized ✅');
+    ZoomMtg.join({
+      sdkKey:      SDK_KEY,
+      signature:   SIG,
+      meetingNumber: MN,
+      userName:    NAME,
+      passWord:    PWD,
+      userEmail:   '',
+      success: (joinRes) => {
+        log('Joined meeting ✅');
+        window.__botStatus = 'joined';
+
+        // Wait 3s then muteAll
+        setTimeout(() => {
+          muteAllParticipants();
+        }, 3000);
+
+        // Listen for participants joining → check if lecturer
+        setupParticipantListener();
+      },
+      error: (joinErr) => {
+        log(`Join error: ${JSON.stringify(joinErr)}`);
+        window.__botStatus = 'error';
+      }
+    });
+  },
+  error: (initErr) => {
+    log(`Init error: ${JSON.stringify(initErr)}`);
+    window.__botStatus = 'error';
+  }
+});
+
+// ── Mute All ──────────────────────────────────────────────
+function muteAllParticipants() {
+  ZoomMtg.muteAll({
+    muteAll: true,
+    success: () => {
+      log('MuteAll ✅');
+      window.__botStatus = 'muted';
+    },
+    error: (e) => {
+      log(`MuteAll error: ${JSON.stringify(e)}`);
+      window.__botStatus = 'muted'; // Continue anyway
+    }
+  });
+}
+
+// ── Watch for Lecturer ─────────────────────────────────────
+function setupParticipantListener() {
+  if (!LECTURER && !LECTURER_EMAIL) return;
+
+  ZoomMtg.inMeetingServiceListener('onUserJoin', (data) => {
+    log(`User joined: ${JSON.stringify(data)}`);
+    
+    const attendees = ZoomMtg.getAttendeeslist({});
+    if (!attendees || !attendees.result) return;
+
+    attendees.result.attendeesList.forEach(user => {
+      const nameMatch  = LECTURER && user.userName &&
+        user.userName.toLowerCase().includes(LECTURER.toLowerCase());
+      const emailMatch = LECTURER_EMAIL && user.userEmail &&
+        user.userEmail.toLowerCase() === LECTURER_EMAIL.toLowerCase();
+
+      if (nameMatch || emailMatch) {
+        log(`Lecturer found: ${user.userName} (${user.userId}) → Making co-host...`);
+        makeCoHost(user.userId);
+      }
+    });
+  });
+}
+
+// ── Make Co-Host ───────────────────────────────────────────
+function makeCoHost(userId) {
+  // ZoomMtg doesn't have makeCoHost natively — use mute control workaround
+  // Co-host must be done via: host gives co-host through UI or ZAK flow
+  // For now: unmute lecturer specifically
+  ZoomMtg.mute({
+    userId: userId,
+    mute: false,
+    success: () => log(`Unmuted lecturer ${userId} ✅`),
+    error: (e) => log(`Unmute error: ${JSON.stringify(e)}`)
+  });
+
+  log(`⚠️ makeCoHost: requires manual action or Zoom Apps SDK upgrade`);
+  window.__lecturerFound = userId;
+}
+</script>
+</body>
+</html>
