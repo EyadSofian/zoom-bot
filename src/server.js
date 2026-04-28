@@ -181,3 +181,14 @@ app.listen(CONFIG.PORT, () => {
 });
 
 module.exports = app;
+
+// -- Zoom Challenge-Response -----------------------------------
+app.post('/challenge', auth, (req, res) => {
+  const { plainToken } = req.body;
+  const crypto = require('crypto');
+  const hash = crypto
+    .createHmac('sha256', process.env.ZOOM_SECRET_TOKEN || '')
+    .update(plainToken)
+    .digest('hex');
+  res.json({ plainToken, encryptedToken: hash });
+});
