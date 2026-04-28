@@ -147,7 +147,7 @@ async function joinMeeting({ meetingNumber, password, lecturerName, lecturerEmai
   sessions.set(meetingNumber, { browser, page, status: 'joining' });
 
   // Navigate to bot page
-  const url = `http://localhost:${CONFIG.PORT}/bot.html` +
+  const url = `http://127.0.0.1:${CONFIG.PORT}/bot.html` +
     `?mn=${encodeURIComponent(meetingNumber)}` +
     `&pwd=${encodeURIComponent(password)}` +
     `&name=${encodeURIComponent(CONFIG.BOT_NAME)}` +
